@@ -16,6 +16,7 @@ export type ApiProvider =
 	| "mistral"
 	| "unbound"
 	| "requesty"
+	| "litellm"
 
 export interface ApiHandlerOptions {
 	apiModelId?: string
@@ -66,6 +67,10 @@ export interface ApiHandlerOptions {
 	requestyApiKey?: string
 	requestyModelId?: string
 	requestyModelInfo?: ModelInfo
+	liteLlmBaseUrl?: string
+	liteLlmApiKey?: string
+	liteLlmModelId?: string
+	liteLlmModelInfo?: ModelInfo
 	modelTemperature?: number
 	modelMaxTokens?: number
 	modelMaxThinkingTokens?: number
@@ -813,4 +818,15 @@ export const unboundDefaultModelInfo: ModelInfo = {
 	outputPrice: 15.0,
 	cacheWritesPrice: 3.75,
 	cacheReadsPrice: 0.3,
+}
+
+// LiteLLM
+export const liteLlmDefaultModelId = "gpt-3.5-turbo"
+export const liteLlmModelInfoSaneDefaults: ModelInfo = {
+	maxTokens: 4096,
+	contextWindow: 16_000,
+	supportsImages: false,
+	supportsPromptCache: false,
+	inputPrice: 0.5,
+	outputPrice: 1.5,
 }

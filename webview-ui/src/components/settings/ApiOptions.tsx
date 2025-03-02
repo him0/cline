@@ -19,6 +19,8 @@ import {
 	geminiModels,
 	glamaDefaultModelId,
 	glamaDefaultModelInfo,
+	liteLlmDefaultModelId,
+	liteLlmModelInfoSaneDefaults,
 	mistralDefaultModelId,
 	mistralModels,
 	openAiModelInfoSaneDefaults,
@@ -260,6 +262,7 @@ const ApiOptions = ({
 						{ value: "ollama", label: "Ollama" },
 						{ value: "unbound", label: "Unbound" },
 						{ value: "requesty", label: "Requesty" },
+						{ value: "litellm", label: "LiteLLM" },
 					]}
 				/>
 			</div>
@@ -1304,6 +1307,60 @@ const ApiOptions = ({
 							color: "var(--vscode-descriptionForeground)",
 						}}>
 						This key is stored locally and only used to make API requests from this extension.
+					</p>
+				</div>
+			)}
+
+			{selectedProvider === "litellm" && (
+				<div>
+					<VSCodeTextField
+						value={apiConfiguration?.liteLlmBaseUrl || ""}
+						style={{ width: "100%" }}
+						type="url"
+						onInput={handleInputChange("liteLlmBaseUrl")}
+						placeholder={"Default: http://localhost:4000"}>
+						<span className="font-medium">Base URL (optional)</span>
+					</VSCodeTextField>
+					<VSCodeTextField
+						value={apiConfiguration?.liteLlmApiKey || ""}
+						style={{ width: "100%" }}
+						type="password"
+						onInput={handleInputChange("liteLlmApiKey")}
+						placeholder="Enter API Key...">
+						<span className="font-medium">API Key</span>
+					</VSCodeTextField>
+					<VSCodeTextField
+						value={apiConfiguration?.liteLlmModelId || ""}
+						style={{ width: "100%" }}
+						onInput={handleInputChange("liteLlmModelId")}
+						placeholder={"e.g. gpt-3.5-turbo"}>
+						<span className="font-medium">Model ID</span>
+					</VSCodeTextField>
+					<ModelPicker
+						apiConfiguration={apiConfiguration}
+						setApiConfigurationField={setApiConfigurationField}
+						defaultModelId={liteLlmDefaultModelId}
+						defaultModelInfo={liteLlmModelInfoSaneDefaults}
+						models={{}}
+						modelIdKey="liteLlmModelId"
+						modelInfoKey="liteLlmModelInfo"
+						serviceName="LiteLLM"
+						serviceUrl="https://docs.litellm.ai/docs/"
+					/>
+					<p
+						style={{
+							fontSize: "12px",
+							marginTop: "5px",
+							color: "var(--vscode-descriptionForeground)",
+						}}>
+						LiteLLM allows you to use various LLM providers through a unified API. For instructions on how
+						to get started, see their
+						<VSCodeLink
+							href="https://docs.litellm.ai/docs/"
+							style={{ display: "inline", fontSize: "inherit" }}>
+							documentation
+						</VSCodeLink>
+						.
 					</p>
 				</div>
 			)}
