@@ -1,12 +1,13 @@
 import { Anthropic } from "@anthropic-ai/sdk"
-import { writeFile } from "@utils/fs"
-import os from "os"
+import * as os from "os"
 import * as path from "path"
-import { HostProvider } from "@/hosts/host-provider"
-import { ShowMessageType } from "@/shared/proto/host/window"
+import { HostProvider } from "../../hosts/host-provider"
+import { ShowMessageType } from "../../shared/proto/host/window"
+import { writeFile } from "../../utils/fs"
+import { ExportRulesData, formatRulesForExport } from "./export-rules-formatter"
 import { openFile } from "./open-file"
 
-export async function downloadTask(dateTs: number, conversationHistory: Anthropic.MessageParam[]) {
+export async function downloadTask(dateTs: number, conversationHistory: Anthropic.MessageParam[], rulesData?: ExportRulesData) {
 	// File name
 	const date = new Date(dateTs)
 	const month = date.toLocaleString("en-US", { month: "short" }).toLowerCase()
@@ -21,7 +22,7 @@ export async function downloadTask(dateTs: number, conversationHistory: Anthropi
 	const fileName = `cline_task_${month}-${day}-${year}_${hours}-${minutes}-${seconds}-${ampm}.md`
 
 	// Generate markdown
-	const markdownContent = conversationHistory
+	let markdownContent = conversationHistory
 		.map((message) => {
 			const role = message.role === "user" ? "**User:**" : "**Assistant:**"
 			const content = Array.isArray(message.content)
@@ -30,6 +31,14 @@ export async function downloadTask(dateTs: number, conversationHistory: Anthropi
 			return `${role}\n\n${content}\n\n`
 		})
 		.join("---\n\n")
+
+	// Add rules information if available
+	if (rulesData) {
+		const rulesSection = formatRulesForExport(rulesData)
+		if (rulesSection) {
+			markdownContent = rulesSection + "\n\n---\n\n" + markdownContent
+		}
+	}
 
 	// Prompt user for save location
 	const saveResponse = await HostProvider.window.showSaveDialog({

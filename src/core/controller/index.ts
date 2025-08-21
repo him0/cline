@@ -2,6 +2,7 @@ import { Anthropic } from "@anthropic-ai/sdk"
 import { buildApiHandler } from "@core/api"
 import { cleanupLegacyCheckpoints } from "@integrations/checkpoints/CheckpointMigration"
 import { downloadTask } from "@integrations/misc/export-markdown"
+import { ExportRulesData } from "@integrations/misc/export-rules-formatter"
 import { ClineAccountService } from "@services/account/ClineAccountService"
 import { McpHub } from "@services/mcp/McpHub"
 import { ApiProvider, ModelInfo } from "@shared/api"
@@ -25,8 +26,16 @@ import { PostHogClientProvider, telemetryService } from "@/services/posthog/Post
 import { ShowMessageType } from "@/shared/proto/host/window"
 import { getLatestAnnouncementId } from "@/utils/announcements"
 import { getCwd, getDesktopDir } from "@/utils/path"
+import { getGlobalClineRules, getLocalClineRules } from "../context/instructions/user-instructions/cline-rules"
+import { getLocalCursorRules, getLocalWindsurfRules } from "../context/instructions/user-instructions/external-rules"
+import { ClineIgnoreController } from "../ignore/ClineIgnoreController"
 import { CacheService, PersistenceErrorEvent } from "../storage/CacheService"
-import { ensureMcpServersDirectoryExists, ensureSettingsDirectoryExists, GlobalFileNames } from "../storage/disk"
+import {
+	ensureMcpServersDirectoryExists,
+	ensureRulesDirectoryExists,
+	ensureSettingsDirectoryExists,
+	GlobalFileNames,
+} from "../storage/disk"
 import { Task } from "../task"
 import { sendMcpMarketplaceCatalogEvent } from "./mcp/subscribeToMcpMarketplaceCatalog"
 import { sendStateUpdate } from "./state/subscribeToState"
@@ -567,7 +576,8 @@ export class Controller {
 
 	async exportTaskWithId(id: string) {
 		const { historyItem, apiConversationHistory } = await this.getTaskWithId(id)
-		await downloadTask(historyItem.ts, apiConversationHistory)
+		const rulesData = await this.getRulesDataForExport()
+		await downloadTask(historyItem.ts, apiConversationHistory, rulesData)
 	}
 
 	async deleteTaskFromState(id: string) {
@@ -706,6 +716,79 @@ export class Controller {
 	VSCode docs about state: "The value must be JSON-stringifyable ... value — A value. MUST not contain cyclic references."
 	For now we'll store the conversation history in memory, and if we need to store in state directly we'd need to do a manual conversion to ensure proper json stringification.
 	*/
+
+	/**
+	 * Gather all rule information for export functionality
+	 * @returns ExportRulesData containing all available rule information
+	 */
+	async getRulesDataForExport(): Promise<ExportRulesData> {
+		const rulesData: ExportRulesData = {}
+
+		try {
+			// Get working directory - use task cwd if available, otherwise default
+			const cwd = this.task ? this.task.getCwd() : await getCwd(getDesktopDir())
+
+			// Get global cline rules
+			const globalClineRulesFilePath = await ensureRulesDirectoryExists()
+			const globalClineRulesToggles = this.cacheService.getGlobalStateKey("globalClineRulesToggles") || {}
+			const globalRules = await getGlobalClineRules(globalClineRulesFilePath, globalClineRulesToggles)
+			if (globalRules) {
+				rulesData.globalRules = globalRules
+			}
+
+			// Get local cline rules
+			const localClineRulesToggles = this.cacheService.getWorkspaceStateKey("localClineRulesToggles") || {}
+			const localRules = await getLocalClineRules(cwd, localClineRulesToggles)
+			if (localRules) {
+				rulesData.localRules = localRules
+			}
+
+			// Get cursor rules
+			const localCursorRulesToggles = this.cacheService.getWorkspaceStateKey("localCursorRulesToggles") || {}
+			const cursorRulesArray = await getLocalCursorRules(cwd, localCursorRulesToggles)
+			if (cursorRulesArray && cursorRulesArray.length > 0) {
+				// Combine cursor rules from file and directory
+				const combinedCursorRules = cursorRulesArray.filter(Boolean).join("\n\n")
+				if (combinedCursorRules) {
+					rulesData.cursorRules = combinedCursorRules
+				}
+			}
+
+			// Get windsurf rules
+			const localWindsurfRulesToggles = this.cacheService.getWorkspaceStateKey("localWindsurfRulesToggles") || {}
+			const windsurfRules = await getLocalWindsurfRules(cwd, localWindsurfRulesToggles)
+			if (windsurfRules) {
+				rulesData.windsurfRules = windsurfRules
+			}
+
+			// Get cline ignore content if available
+			const clineIgnoreController = this.task?.getClineIgnoreController()
+			if (clineIgnoreController) {
+				const clineIgnoreContent = clineIgnoreController.clineIgnoreContent
+				if (clineIgnoreContent) {
+					rulesData.clineIgnore = clineIgnoreContent
+				}
+			} else {
+				// If no task is active, create a temporary controller to get ignore content
+				const tempController = new ClineIgnoreController(cwd)
+				await tempController.initialize()
+				if (tempController.clineIgnoreContent) {
+					rulesData.clineIgnore = tempController.clineIgnoreContent
+				}
+				await tempController.dispose()
+			}
+
+			// Get preferred language
+			const preferredLanguage = this.cacheService.getGlobalStateKey("preferredLanguage")
+			if (preferredLanguage) {
+				rulesData.preferredLanguage = preferredLanguage
+			}
+		} catch (error) {
+			console.error("Error gathering rules data for export:", error)
+		}
+
+		return rulesData
+	}
 
 	async updateTaskHistory(item: HistoryItem): Promise<HistoryItem[]> {
 		const history = this.cacheService.getGlobalStateKey("taskHistory")

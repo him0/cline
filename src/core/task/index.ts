@@ -390,6 +390,20 @@ export class Task {
 		this.useAutoCondense = useAutoCondense
 	}
 
+	/**
+	 * Get the current working directory for this task
+	 */
+	public getCwd(): string {
+		return this.cwd
+	}
+
+	/**
+	 * Get the cline ignore controller for this task
+	 */
+	public getClineIgnoreController(): ClineIgnoreController | undefined {
+		return this.clineIgnoreController
+	}
+
 	// While a task is ref'd by a controller, it will always have access to the extension context
 	// This error is thrown if the controller derefs the task after e.g., aborting the task
 	private getContext(): vscode.ExtensionContext {
@@ -1924,7 +1938,7 @@ export class Task {
 		}
 
 		/*
-		Seeing out of bounds is fine, it means that the next too call is being built up and ready to add to assistantMessageContent to present. 
+		Seeing out of bounds is fine, it means that the next too call is being built up and ready to add to assistantMessageContent to present.
 		When you see the UI inactive during this, it means that a tool is breaking without presenting any UI. For example the write_to_file tool was breaking when relpath was undefined, and for invalid relpath it never presented UI.
 		*/
 		this.taskState.presentAssistantMessageLocked = false // this needs to be placed here, if not then calling this.presentAssistantMessage below would fail (sometimes) since it's locked
